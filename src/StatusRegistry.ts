@@ -94,7 +94,7 @@ export class StatusRegistry {
     }
 
     /**
-     * Resets the array os Status types to be empty.
+     * Resets the array os Status types to be empty, then adds back the default statuses
      *
      * @memberof StatusRegistry
      */

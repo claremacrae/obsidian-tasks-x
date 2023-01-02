@@ -75,6 +75,8 @@ export class Status {
     /**
      * A default status of empty, used when things go wrong.
      *
+     * CFM Why is this available as a command?
+     *
      * @static
      * @memberof Status
      */
@@ -82,6 +84,8 @@ export class Status {
 
     /**
      * The default Todo status. Goes to In Progress when toggled.
+     *
+     * CFM What if users don't want this - and want to be able to cycle between Todo and Done?
      *
      * @static
      * @type {Status}
@@ -101,6 +105,8 @@ export class Status {
     /**
      * The default In Progress status. Goes to Done when toggled.
      *
+     * CFM What if users want to be able to use a different character for 'In Progress'?
+     *
      * @static
      * @type {Status}
      * @memberof Status
@@ -108,7 +114,7 @@ export class Status {
     public static IN_PROGRESS: Status = new Status(new StatusConfiguration('/', 'In Progress', 'x', true));
 
     /**
-     * The configuration stored in the data.json file.
+     * The configuration stored in the data.json file. A {@link StatusConfiguration}
      *
      * @type {StatusConfiguration}
      * @memberof Status
@@ -169,6 +175,8 @@ export class Status {
     /**
      * Returns the completion status for a task, this is only supported
      * when the task is done/x.
+     *
+     * CFM Completed is an interesting concept. What if users want to treat other indicators as completed too?
      *
      * @return {*}  {boolean}
      * @memberof Status
