@@ -301,28 +301,7 @@ export class SettingsTab extends PluginSettingTab {
                         ['b', 'Bookmark', 'x'],
                     ];
 
-                    minimalSupportedStatuses.forEach((importedStatus) => {
-                        const hasStatus = statusTypes.find((element) => {
-                            return (
-                                element.indicator == importedStatus[0] &&
-                                element.name == importedStatus[1] &&
-                                element.nextStatusIndicator == importedStatus[2]
-                            );
-                        });
-                        if (!hasStatus) {
-                            statusTypes.push(
-                                new StatusConfiguration(importedStatus[0], importedStatus[1], importedStatus[2], false),
-                            );
-                        } else {
-                            new Notice(`The status ${importedStatus[1]} (${importedStatus[0]}) is already added.`);
-                        }
-                    });
-
-                    updateSettings({
-                        statusTypes: statusTypes,
-                    });
-
-                    await settings.saveSettings(true);
+                    await this.addCustomStatesToSettings(minimalSupportedStatuses, statusTypes, settings);
                 });
         });
         addStatusesSupportedByMinimalTheme.infoEl.remove();
@@ -333,7 +312,7 @@ export class SettingsTab extends PluginSettingTab {
                 .setButtonText('Add all Status types supported by ITS Theme')
                 .setCta()
                 .onClick(async () => {
-                    const supportedStatuses: Array<[string, string, string]> = [
+                    const itsSupportedStatuses: Array<[string, string, string]> = [
                         //['X', 'Checked', 'x'],
                         ['>', 'Forward', 'x'],
                         ['D', 'Deferred/Scheduled', 'x'],
@@ -359,30 +338,38 @@ export class SettingsTab extends PluginSettingTab {
                         ['c', 'Choice', 'x'],
                     ];
 
-                    supportedStatuses.forEach((importedStatus) => {
-                        const hasStatus = statusTypes.find((element) => {
-                            return (
-                                element.indicator == importedStatus[0] &&
-                                element.name == importedStatus[1] &&
-                                element.nextStatusIndicator == importedStatus[2]
-                            );
-                        });
-                        if (!hasStatus) {
-                            statusTypes.push(
-                                new StatusConfiguration(importedStatus[0], importedStatus[1], importedStatus[2], false),
-                            );
-                        } else {
-                            new Notice(`The status ${importedStatus[1]} (${importedStatus[0]}) is already added.`);
-                        }
-                    });
-
-                    updateSettings({
-                        statusTypes: statusTypes,
-                    });
-
-                    await settings.saveSettings(true);
+                    await this.addCustomStatesToSettings(itsSupportedStatuses, statusTypes, settings);
                 });
         });
         addStatusesSupportedByITSTheme.infoEl.remove();
+    }
+
+    private async addCustomStatesToSettings(
+        supportedStatuses: Array<[string, string, string]>,
+        statusTypes: StatusConfiguration[],
+        settings: SettingsTab,
+    ) {
+        supportedStatuses.forEach((importedStatus) => {
+            const hasStatus = statusTypes.find((element) => {
+                return (
+                    element.indicator == importedStatus[0] &&
+                    element.name == importedStatus[1] &&
+                    element.nextStatusIndicator == importedStatus[2]
+                );
+            });
+            if (!hasStatus) {
+                statusTypes.push(
+                    new StatusConfiguration(importedStatus[0], importedStatus[1], importedStatus[2], false),
+                );
+            } else {
+                new Notice(`The status ${importedStatus[1]} (${importedStatus[0]}) is already added.`);
+            }
+        });
+
+        updateSettings({
+            statusTypes: statusTypes,
+        });
+
+        await settings.saveSettings(true);
     }
 }
