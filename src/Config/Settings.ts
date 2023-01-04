@@ -6,7 +6,7 @@ interface SettingsMap {
     [key: string]: string | boolean;
 }
 
-type HeadingState = {
+export type HeadingState = {
     [id: string]: boolean;
 };
 
