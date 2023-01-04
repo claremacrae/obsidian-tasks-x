@@ -3,7 +3,14 @@ import { StatusConfiguration } from 'Status';
 import type TasksPlugin from '../main';
 import { log } from './../lib/logging';
 import { Feature } from './Feature';
-import { getSettings, isFeatureEnabled, toggleFeature, updateGeneralSetting, updateSettings } from './Settings';
+import {
+    HeadingState,
+    getSettings,
+    isFeatureEnabled,
+    toggleFeature,
+    updateGeneralSetting,
+    updateSettings,
+} from './Settings';
 import settingsJson from './settingsConfiguration.json';
 
 import { CustomStatusModal } from './CustomStatusModal';
@@ -42,114 +49,118 @@ export class SettingsTab extends PluginSettingTab {
         this.containerEl.empty();
         this.containerEl.addClass('tasks-settings');
         settingsJson.forEach((heading) => {
-            const detailsContainer = containerEl.createEl('details', {
-                cls: 'tasks-nested-settings',
-                attr: {
-                    ...(heading.open || headingOpened[heading.text] ? { open: true } : {}),
-                },
+            this.addOneSettingsBlock(containerEl, heading, headingOpened);
+        });
+    }
+
+    private addOneSettingsBlock(containerEl: HTMLElement, heading: any, headingOpened: HeadingState) {
+        const detailsContainer = containerEl.createEl('details', {
+            cls: 'tasks-nested-settings',
+            attr: {
+                ...(heading.open || headingOpened[heading.text] ? { open: true } : {}),
+            },
+        });
+        detailsContainer.empty();
+        detailsContainer.ontoggle = () => {
+            headingOpened[heading.text] = detailsContainer.open;
+            updateSettings({ headingOpened: headingOpened });
+            this.plugin.saveSettings();
+        };
+        const summary = detailsContainer.createEl('summary');
+        new Setting(summary).setHeading().setName(heading.text);
+        summary.createDiv('collapser').createDiv('handle');
+
+        // detailsContainer.createEl(heading.level as keyof HTMLElementTagNameMap, { text: heading.text });
+
+        if (heading.notice !== null) {
+            const notice = detailsContainer.createEl('div', {
+                cls: heading.notice.class,
+                text: heading.notice.text,
             });
-            detailsContainer.empty();
-            detailsContainer.ontoggle = () => {
-                headingOpened[heading.text] = detailsContainer.open;
-                updateSettings({ headingOpened: headingOpened });
-                this.plugin.saveSettings();
-            };
-            const summary = detailsContainer.createEl('summary');
-            new Setting(summary).setHeading().setName(heading.text);
-            summary.createDiv('collapser').createDiv('handle');
+            if (heading.notice.html !== null) {
+                notice.insertAdjacentHTML('beforeend', heading.notice.html);
+            }
+        }
 
-            // detailsContainer.createEl(heading.level as keyof HTMLElementTagNameMap, { text: heading.text });
+        // This will process all the settings from settingsConfiguration.json and render
+        // them out reducing the duplication of the code in this file. This will become
+        // more important as features are being added over time.
+        heading.settings.forEach((setting: any) => {
+            if (setting.featureFlag !== '' && !isFeatureEnabled(setting.featureFlag)) {
+                // The settings configuration has a featureFlag set and the user has not
+                // enabled it. Skip adding the settings option.
+                return;
+            }
+            if (setting.type === 'checkbox') {
+                new Setting(detailsContainer)
+                    .setName(setting.name)
+                    .setDesc(setting.description)
+                    .addToggle((toggle) => {
+                        const settings = getSettings();
+                        if (!settings.generalSettings[setting.settingName]) {
+                            updateGeneralSetting(setting.settingName, setting.initialValue);
+                        }
+                        toggle
+                            .setValue(<boolean>settings.generalSettings[setting.settingName])
+                            .onChange(async (value) => {
+                                updateGeneralSetting(setting.settingName, value);
+                                await this.plugin.saveSettings();
+                            });
+                    });
+            } else if (setting.type === 'text') {
+                new Setting(detailsContainer)
+                    .setName(setting.name)
+                    .setDesc(setting.description)
+                    .addText((text) => {
+                        const settings = getSettings();
+                        if (!settings.generalSettings[setting.settingName]) {
+                            updateGeneralSetting(setting.settingName, setting.initialValue);
+                        }
 
-            if (heading.notice !== null) {
-                const notice = detailsContainer.createEl('div', {
-                    cls: heading.notice.class,
-                    text: heading.notice.text,
-                });
-                if (heading.notice.html !== null) {
-                    notice.insertAdjacentHTML('beforeend', heading.notice.html);
-                }
+                        const onChange = async (value: string) => {
+                            updateGeneralSetting(setting.settingName, value);
+                            await this.plugin.saveSettings();
+                        };
+
+                        text.setPlaceholder(setting.placeholder.toString())
+                            .setValue(settings.generalSettings[setting.settingName].toString())
+                            .onChange(debounce(onChange, 500, true));
+                    });
+            } else if (setting.type === 'textarea') {
+                new Setting(detailsContainer)
+                    .setName(setting.name)
+                    .setDesc(setting.description)
+                    .addTextArea((text) => {
+                        const settings = getSettings();
+                        if (!settings.generalSettings[setting.settingName]) {
+                            updateGeneralSetting(setting.settingName, setting.initialValue);
+                        }
+
+                        const onChange = async (value: string) => {
+                            updateGeneralSetting(setting.settingName, value);
+                            await this.plugin.saveSettings();
+                        };
+
+                        text.setPlaceholder(setting.placeholder.toString())
+                            .setValue(settings.generalSettings[setting.settingName].toString())
+                            .onChange(debounce(onChange, 500, true));
+
+                        text.inputEl.rows = 8;
+                        text.inputEl.cols = 40;
+                    });
+            } else if (setting.type === 'function') {
+                this.customFunctions[setting.settingName](detailsContainer, this);
             }
 
-            // This will process all the settings from settingsConfiguration.json and render
-            // them out reducing the duplication of the code in this file. This will become
-            // more important as features are being added over time.
-            heading.settings.forEach((setting) => {
-                if (setting.featureFlag !== '' && !isFeatureEnabled(setting.featureFlag)) {
-                    // The settings configuration has a featureFlag set and the user has not
-                    // enabled it. Skip adding the settings option.
-                    return;
+            if (setting.notice !== null) {
+                const notice = detailsContainer.createEl('p', {
+                    cls: setting.notice.class,
+                    text: setting.notice.text,
+                });
+                if (setting.notice.html !== null) {
+                    notice.insertAdjacentHTML('beforeend', setting.notice.html);
                 }
-                if (setting.type === 'checkbox') {
-                    new Setting(detailsContainer)
-                        .setName(setting.name)
-                        .setDesc(setting.description)
-                        .addToggle((toggle) => {
-                            const settings = getSettings();
-                            if (!settings.generalSettings[setting.settingName]) {
-                                updateGeneralSetting(setting.settingName, setting.initialValue);
-                            }
-                            toggle
-                                .setValue(<boolean>settings.generalSettings[setting.settingName])
-                                .onChange(async (value) => {
-                                    updateGeneralSetting(setting.settingName, value);
-                                    await this.plugin.saveSettings();
-                                });
-                        });
-                } else if (setting.type === 'text') {
-                    new Setting(detailsContainer)
-                        .setName(setting.name)
-                        .setDesc(setting.description)
-                        .addText((text) => {
-                            const settings = getSettings();
-                            if (!settings.generalSettings[setting.settingName]) {
-                                updateGeneralSetting(setting.settingName, setting.initialValue);
-                            }
-
-                            const onChange = async (value: string) => {
-                                updateGeneralSetting(setting.settingName, value);
-                                await this.plugin.saveSettings();
-                            };
-
-                            text.setPlaceholder(setting.placeholder.toString())
-                                .setValue(settings.generalSettings[setting.settingName].toString())
-                                .onChange(debounce(onChange, 500, true));
-                        });
-                } else if (setting.type === 'textarea') {
-                    new Setting(detailsContainer)
-                        .setName(setting.name)
-                        .setDesc(setting.description)
-                        .addTextArea((text) => {
-                            const settings = getSettings();
-                            if (!settings.generalSettings[setting.settingName]) {
-                                updateGeneralSetting(setting.settingName, setting.initialValue);
-                            }
-
-                            const onChange = async (value: string) => {
-                                updateGeneralSetting(setting.settingName, value);
-                                await this.plugin.saveSettings();
-                            };
-
-                            text.setPlaceholder(setting.placeholder.toString())
-                                .setValue(settings.generalSettings[setting.settingName].toString())
-                                .onChange(debounce(onChange, 500, true));
-
-                            text.inputEl.rows = 8;
-                            text.inputEl.cols = 40;
-                        });
-                } else if (setting.type === 'function') {
-                    this.customFunctions[setting.settingName](detailsContainer, this);
-                }
-
-                if (setting.notice !== null) {
-                    const notice = detailsContainer.createEl('p', {
-                        cls: setting.notice.class,
-                        text: setting.notice.text,
-                    });
-                    if (setting.notice.html !== null) {
-                        notice.insertAdjacentHTML('beforeend', setting.notice.html);
-                    }
-                }
-            });
+            }
         });
     }
 
